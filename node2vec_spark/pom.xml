@@ -16,8 +16,9 @@
         <shadedClassifier>bin</shadedClassifier>
         <maven-shade-plugin.version>2.4.3</maven-shade-plugin.version>
         <exec-maven-plugin.version>1.4.0</exec-maven-plugin.version>
-        <java.version>1.7</java.version>
-        <scala.binary.version>2.10</scala.binary.version>
+        <java.version>1.8</java.version>
+        <scala.binary.version>2.11.8</scala.binary.version>
+        <spark.version>2.2.1</spark.version>
     </properties>
 
     <build>
@@ -93,24 +94,24 @@
         <dependency>
             <groupId>org.scala-lang</groupId>
             <artifactId>scala-library</artifactId>
-            <version>${scala.binary.version}.5</version>
+            <version>${scala.binary.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.spark</groupId>
-            <artifactId>spark-core_${scala.binary.version}</artifactId>
-            <version>1.6.1</version>
+            <artifactId>spark-core_2.11</artifactId>
+            <version>${spark.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.spark</groupId>
-            <artifactId>spark-mllib_${scala.binary.version}</artifactId>
-            <version>1.6.1</version>
+            <artifactId>spark-mllib_2.11</artifactId>
+            <version>${spark.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.github.scopt</groupId>
-            <artifactId>scopt_${scala.binary.version}</artifactId>
+            <artifactId>scopt_2.11</artifactId>
             <version>3.3.0</version>
             <exclusions>
                 <exclusion>
