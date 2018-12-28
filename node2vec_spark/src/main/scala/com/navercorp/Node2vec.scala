@@ -273,7 +273,8 @@ object Node2vec extends Serializable {
       }
     }.filter(_!=null)
   }
-  
+
+  // convert node to distinct id
   def createNode2Id[T <: Any](triplets: RDD[(String, String, T)]) = triplets.flatMap { case (src, dst, weight) =>
     Try(Array(src, dst)).getOrElse(Array.empty[String])
   }.distinct().zipWithIndex()
