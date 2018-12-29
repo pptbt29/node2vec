@@ -13,7 +13,7 @@ object Main {
   import Command._
 
   case class Params(iter: Int = 10,
-                    lr: Double = 0.025,
+                    lr: Double = 0.0025,
                     numPartition: Int = 10,
                     dim: Int = 128,
                     window: Int = 10,
