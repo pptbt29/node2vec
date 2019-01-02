@@ -1,6 +1,5 @@
 package com.navercorp
 
-
 import java.io.Serializable
 import scala.util.Try
 import scala.collection.mutable.ArrayBuffer
@@ -8,21 +7,24 @@ import org.slf4j.{Logger, LoggerFactory}
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.graphx.{EdgeTriplet, Graph, _}
+import org.apache.spark.sql.{SparkSession, Row}
 import com.navercorp.graph.{GraphOps, EdgeAttr, NodeAttr}
 
 object Node2vec extends Serializable {
-  lazy val logger: Logger = LoggerFactory.getLogger(getClass.getName);
-  
-  var context: SparkContext = null
-  var config: Main.Params = null
-  var node2id: RDD[(String, Long)] = null
+  lazy val logger: Logger = LoggerFactory.getLogger(getClass.getName)
+
+  var spark: SparkSession = _
+  var context: SparkContext = _
+  var config: Main.Params = _
+  var node2id: RDD[(String, Long)] = _
   var indexedEdges: RDD[Edge[EdgeAttr]] = _
   var indexedNodes: RDD[(VertexId, NodeAttr)] = _
   var graph: Graph[NodeAttr, EdgeAttr] = _
-  var randomWalkPaths: RDD[(Long, ArrayBuffer[Long])] = null
+  var randomWalkPaths: RDD[(Long, ArrayBuffer[Long])] = _
 
-  def setup(context: SparkContext, param: Main.Params): this.type = {
-    this.context = context
+  def setup(spark: SparkSession, param: Main.Params): this.type = {
+    this.spark = spark
+    this.context = spark.sparkContext
     this.config = param
     
     this
@@ -36,8 +38,8 @@ object Node2vec extends Serializable {
     }
     
     val inputTriplets: RDD[(Long, Long, Double)] = config.indexed match {
-      case true => readIndexedGraph(config.input)
-      case false => indexingGraph(config.input)
+      case true => readIndexedGraph()
+      case false => indexingGraph()
     }
     
     indexedNodes = inputTriplets.flatMap { case (srcId, dstId, weight) =>
@@ -219,43 +221,56 @@ object Node2vec extends Serializable {
     this
   }
   
-  def readIndexedGraph(tripletPath: String) = {
+  def readIndexedGraph():RDD[(Long, Long, Double)] = {
     val bcWeighted = context.broadcast(config.weighted)
-    
-    val rawTriplets = context.textFile(tripletPath)
+    val phoneNumPairs = DataGenerator.getPhoneNumberPairsInNDays(
+      spark,
+      config.contactTableStartDate,
+      config.contactTableEndDate,
+      config.userTableSelectedDate
+    ).rdd.map{
+      case Row(null, _) => null
+      case Row(_, null) => null
+      case Row(srcNode: String, destNode: String) => (srcNode, destNode, -1.0)
+      case Row(srcNode: String, destNode: String, weight: Double) => (srcNode, destNode, weight)
+    }.filter(_!=null)
+
     if (config.nodePath == null) {
-      this.node2id = createNode2Id(rawTriplets.map { triplet =>
-        val parts = triplet.split("\\s")
-        (parts.head, parts(1), -1)
-      })
+      this.node2id = createNode2Id(phoneNumPairs)
     } else {
       loadNode2Id(config.nodePath)
     }
 
-    rawTriplets.map { triplet =>
-      val parts = triplet.split("\\s")
-      val weight = bcWeighted.value match {
-        case true => Try(parts.last.toDouble).getOrElse(1.0)
-        case false => 1.0
+    indexingNodeInEdges(phoneNumPairs.map{ triplet: (String, String, Double) =>
+      bcWeighted.value match {
+        case true => triplet
+        case false => (triplet._1, triplet._2, 1.0)
       }
-
-      (parts.head.toLong, parts(1).toLong, weight)
-    }
+    })
   }
   
 
-  def indexingGraph(rawTripletPath: String): RDD[(Long, Long, Double)] = {
-    val rawEdges = context.textFile(rawTripletPath).map { triplet =>
-      val parts = triplet.split("\\s")
-
-      Try {
-        (parts.head, parts(1), Try(parts.last.toDouble).getOrElse(1.0))
-      }.getOrElse(null)
+  def indexingGraph(): RDD[(Long, Long, Double)] = {
+    val phoneNumPairs = DataGenerator.getPhoneNumberPairsInNDays(
+      spark,
+      config.contactTableStartDate,
+      config.contactTableEndDate,
+      config.userTableSelectedDate
+    ).rdd.map{
+      case Row(null, _) => null
+      case Row(_, null) => null
+      case Row(srcNode: String, destNode: String) => (srcNode, destNode, -1.0)
+      case Row(srcNode: String, destNode: String, weight: Double) => (srcNode, destNode, weight)
     }.filter(_!=null)
-    
-    this.node2id = createNode2Id(rawEdges)
-    
-    rawEdges.map { case (src, dst, weight) =>
+
+    this.node2id = createNode2Id(phoneNumPairs)
+
+    indexingNodeInEdges(phoneNumPairs)
+
+  }
+
+  def indexingNodeInEdges(edges: RDD[(String, String, Double)]): RDD[(Long, Long, Double)] = {
+    edges.map{ case (src, dst, weight) =>
       (src, (dst, weight))
     }.join(node2id).map { case (src, (edge: (String, Double), srcIndex: Long)) =>
       try {
@@ -271,7 +286,7 @@ object Node2vec extends Serializable {
       } catch {
         case e: Exception => null
       }
-    }.filter(_!=null)
+    }
   }
 
   // convert node to distinct id

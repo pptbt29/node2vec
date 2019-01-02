@@ -2,6 +2,7 @@ package com.navercorp
 
 import java.io.Serializable
 import org.apache.spark.{SparkContext, SparkConf}
+import org.apache.spark.sql.SparkSession
 import scopt.OptionParser
 import com.navercorp.lib.AbstractParams
 
@@ -13,7 +14,7 @@ object Main {
   import Command._
 
   case class Params(iter: Int = 10,
-                    lr: Double = 0.0025,
+                    lr: Double = 0.025,
                     numPartition: Int = 10,
                     dim: Int = 128,
                     window: Int = 10,
@@ -28,6 +29,9 @@ object Main {
                     nodePath: String = null,
                     input: String = null,
                     output: String = null,
+                    contactTableStartDate: String = null,
+                    contactTableEndDate: String = null,
+                    userTableSelectedDate: String = null,
                     cmd: Command = Command.node2vec) extends AbstractParams[Params] with Serializable
   val defaultParams = Params()
   
@@ -68,6 +72,15 @@ object Main {
             .required()
             .text("Output path: empty")
             .action((x, c) => c.copy(output = x))
+    opt[String]("startDate")
+            .required()
+            .action((x, c) => c.copy(contactTableStartDate = x))
+    opt[String]("endDate")
+            .required()
+            .action((x, c) => c.copy(contactTableEndDate = x))
+    opt[String]("userTableDate")
+            .required()
+            .action((x, c) => c.copy(userTableSelectedDate = x))
     opt[String]("cmd")
             .required()
             .text(s"command: ${defaultParams.cmd.toString}")
@@ -91,10 +104,13 @@ object Main {
   
   def main(args: Array[String]) = {
     parser.parse(args, defaultParams).map { param =>
-      val conf = new SparkConf().setAppName("Node2Vec")
-      val context: SparkContext = new SparkContext(conf)
-      
-      Node2vec.setup(context, param)
+      val spark = SparkSession.builder
+        .appName("Node2Vec")
+        .enableHiveSupport()
+        .getOrCreate()
+
+      val context: SparkContext = spark.sparkContext
+      Node2vec.setup(spark, param)
       
       param.cmd match {
         case Command.node2vec => Node2vec.load()
