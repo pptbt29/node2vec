@@ -65,7 +65,6 @@ object Main {
             .text("Input node2index file path: empty")
             .action((x, c) => c.copy(nodePath = x))
     opt[String]("input")
-            .required()
             .text("Input edge file path: empty")
             .action((x, c) => c.copy(input = x))
     opt[String]("output")
