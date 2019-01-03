@@ -1,6 +1,6 @@
 package com.navercorp
 
-import java.io.Serializable
+import java.io.{Serializable, File}
 import org.apache.spark.{SparkContext, SparkConf}
 import org.apache.spark.sql.SparkSession
 import scopt.OptionParser
@@ -103,8 +103,10 @@ object Main {
   
   def main(args: Array[String]) = {
     parser.parse(args, defaultParams).map { param =>
+      val warehouseLocation = new File("spark-warehouse").getAbsolutePath
       val spark = SparkSession.builder
         .appName("Node2Vec")
+        .config("spark.sql.warehouse.dir", warehouseLocation)
         .enableHiveSupport()
         .getOrCreate()
       spark.sparkContext.setLogLevel("WARN")
