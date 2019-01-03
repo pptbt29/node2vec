@@ -32,6 +32,7 @@ object Main {
                     contactTableStartDate: String = null,
                     contactTableEndDate: String = null,
                     userTableSelectedDate: String = null,
+                    dataSizeLimit: String = null,
                     cmd: Command = Command.node2vec) extends AbstractParams[Params] with Serializable
   val defaultParams = Params()
   
@@ -80,6 +81,9 @@ object Main {
     opt[String]("userTableDate")
             .required()
             .action((x, c) => c.copy(userTableSelectedDate = x))
+    opt[String]("dataSizeLimit")
+            .required()
+            .action((x, c) => c.copy(dataSizeLimit = x))
     opt[String]("cmd")
             .required()
             .text(s"command: ${defaultParams.cmd.toString}")
