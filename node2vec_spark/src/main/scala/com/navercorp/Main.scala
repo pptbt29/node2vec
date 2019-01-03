@@ -107,6 +107,7 @@ object Main {
         .appName("Node2Vec")
         .enableHiveSupport()
         .getOrCreate()
+      spark.sparkContext.setLogLevel("WARN")
 
       val context: SparkContext = spark.sparkContext
       Node2vec.setup(spark, param)
