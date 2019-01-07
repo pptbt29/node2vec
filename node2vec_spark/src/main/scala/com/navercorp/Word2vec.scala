@@ -18,7 +18,7 @@ object Word2vec extends Serializable {
     word2vec.setLearningRate(param.lr)
             .setNumIterations(param.iter)
             .setNumPartitions(param.numPartition)
-            .setMinCount(0)
+            .setMinCount(10)
             .setVectorSize(param.dim)
 
     val word2vecWindowField = word2vec.getClass.getDeclaredField("org$apache$spark$mllib$feature$Word2Vec$$window")
