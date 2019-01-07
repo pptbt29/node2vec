@@ -32,6 +32,7 @@ object Main {
                     contactTableStartDate: String = null,
                     contactTableEndDate: String = null,
                     userTableSelectedDate: String = null,
+                    selectedRegions: Array[String] = _,
                     dataSizeLimit: String = null,
                     cmd: Command = Command.node2vec) extends AbstractParams[Params] with Serializable
   val defaultParams = Params()
@@ -84,6 +85,9 @@ object Main {
             .required()
             .text("userTableDate")
             .action((x, c) => c.copy(userTableSelectedDate = x))
+    opt[String]("idOfSelectedRegions")
+            .text("idOfSelectedRegions format: regionId_1 regionId_2 ...")
+            .action((x, c) => c.copy(selectedRegions = x.split("\\s")))
     opt[String]("dataSizeLimit")
             .required()
             .text("dataSizeLimit")
