@@ -89,7 +89,6 @@ object Main {
             .text("idOfSelectedRegions format: regionId_1 regionId_2 ...")
             .action((x, c) => c.copy(selectedRegions = x.split("\\s")))
     opt[String]("dataSizeLimit")
-            .required()
             .text("dataSizeLimit")
             .action((x, c) => c.copy(dataSizeLimit = x))
     opt[String]("cmd")
