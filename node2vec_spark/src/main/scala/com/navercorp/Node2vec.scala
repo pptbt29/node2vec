@@ -135,7 +135,7 @@ object Node2vec extends Serializable {
         randomWalkPaths = randomWalk
       }
     }
-    
+    saveRandomPath()
     this
   }
   
