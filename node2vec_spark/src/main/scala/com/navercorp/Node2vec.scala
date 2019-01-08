@@ -150,9 +150,7 @@ object Node2vec extends Serializable {
   }
   
   def save(): this.type = {
-    this.saveRandomPath()
-        .saveModel()
-        .saveVectors()
+    this.saveVectors()
   }
   
   def saveRandomPath(): this.type = {
