@@ -135,7 +135,7 @@ object Node2vec extends Serializable {
         randomWalkPaths = randomWalk
       }
     }
-    saveRandomPath()
+
     this
   }
   
@@ -150,7 +150,9 @@ object Node2vec extends Serializable {
   }
   
   def save(): this.type = {
-    this.saveVectors()
+    this.saveRandomPath()
+        .saveModel()
+        .saveVectors()
   }
   
   def saveRandomPath(): this.type = {
