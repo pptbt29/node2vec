@@ -226,7 +226,7 @@ object Node2vec extends Serializable {
       config.contactTableStartDate,
       config.contactTableEndDate,
       config.userTableSelectedDate,
-      config.dataSizeLimit
+      idsOfSelectedRegions = config.selectedRegions
     ).rdd.map{
       case Row(null, _) => null
       case Row(_, null) => null
@@ -255,7 +255,7 @@ object Node2vec extends Serializable {
       config.contactTableStartDate,
       config.contactTableEndDate,
       config.userTableSelectedDate,
-      config.dataSizeLimit
+      idsOfSelectedRegions = config.selectedRegions
     ).rdd.map{
       case Row(null, _) => null
       case Row(_, null) => null
