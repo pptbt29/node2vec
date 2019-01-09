@@ -17,10 +17,12 @@ class PhoneNumberPairs(
   var distinctPhoneNumbers: DataFrame = _
   var phoneCount: Long = _
   var edgeCount: Long = _
-  var outDegree: DataFrame = _
-  var inDegree: DataFrame = _
+  var outDegreeForEachPhoneNum: DataFrame = _
+  var inDegreeForEachPhoneNum: DataFrame = _
+  var outDegreeVerseTotalNumber: DataFrame = _
+  var inDegreeVerseTotalNumber: DataFrame = _
 
-  def getPhoneNumberPairsInNDays():DataFrame =
+  def getPhoneNumberPairs():DataFrame =
   {
     var regionLimitationSql = ""
     if (idsOfSelectedRegions != null && idsOfSelectedRegions.nonEmpty) {
@@ -66,21 +68,39 @@ class PhoneNumberPairs(
     distinctPhoneNumbers = contactsPhoneNums.union(usersPhoneNums).distinct()
   }
 
-  def getOutDegree(): DataFrame = {
-    outDegree = pnp.rdd
+  def getOutDegreeForEachPhoneNum(): DataFrame = {
+    outDegreeForEachPhoneNum = pnp.rdd
       .map{case Row(user_number: String, _) => (user_number, 1.toLong)}
       .reduceByKey(_ + _)
       .map{case (user_number: String, num) => (num, user_number)}
       .sortByKey().toDF("out_degree", "phone_num")
-    outDegree
+    outDegreeForEachPhoneNum
   }
 
-  def getInDegree(): DataFrame = {
-    inDegree = pnp.rdd
+  def getInDegreeForEachPhoneNum(): DataFrame = {
+    inDegreeForEachPhoneNum = pnp.rdd
       .map{case Row(_, contact_number: String) => (contact_number, 1.toLong)}
       .reduceByKey(_ + _)
       .map{case (contact_number: String, num) => (num, contact_number)}
       .sortByKey().toDF("in_degree", "phone_num")
-    inDegree
+    inDegreeForEachPhoneNum
+  }
+
+  def getOutDegreeVerseTotalNumber(): DataFrame = {
+    outDegreeVerseTotalNumber = outDegreeForEachPhoneNum.rdd
+      .map{case Row(in_degree: Long, _) => (in_degree, 1.toLong)}
+      .reduceByKey(_ + _)
+      .sortByKey()
+      .toDF("in_degree", "total_num")
+    outDegreeVerseTotalNumber
+  }
+
+  def getInDegreeVerseTotalNumber(): DataFrame = {
+    inDegreeVerseTotalNumber = inDegreeForEachPhoneNum.rdd
+        .map{case Row(in_degree: Long, _) => (in_degree, 1.toLong)}
+        .reduceByKey(_ + _)
+        .sortByKey()
+        .toDF("in_degree", "total_num")
+    inDegreeVerseTotalNumber
   }
 }
