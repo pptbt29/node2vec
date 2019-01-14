@@ -1,6 +1,6 @@
 package com.navercorp
 
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
 object DataGenerator {
   def getPhoneNumberPairsInNDays(spark: SparkSession,
@@ -33,14 +33,22 @@ object DataGenerator {
          |    phone_number, mobile_number
          |FROM
          |    (SELECT phone_number, user_id FROM dwd.dwd_tantan_eventlog_user_contact_i_d
-         |    WHERE dt between '$i_user_contact_start_date' and '$i_user_contact_end_date'
-         |    $dataLimitSql)
+         |    WHERE dt between '$i_user_contact_start_date' and '$i_user_contact_end_date')
          |JOIN
          |    (SELECT mobile_number, id FROM dwd.dwd_putong_yay_users_a_d
-         |    WHERE dt = '$a_user_table_date' $regionLimitationSql)
+         |    WHERE dt = '$a_user_table_date')
          |on
          |    user_id = id
     """.stripMargin
-    )
+    ).rdd.map {
+      case Row(null, _) => null
+      case Row(_, null) => null
+      case Row(srcNode: String, destNode: String) => {
+        val srcNodeTemp = regexCheckAndSlicePhoneNumber(srcNode)
+        val destNodeTemp = regexCheckAndSlicePhoneNumber(destNode)
+        (srcNodeTemp, destNodeTemp, srcNode, destNode)
+      }
+    }.filter(_ != null).toDF("mobile_number", "phone_number", "mobile_number_origin", "phone_number_origin")
+
   }
 }

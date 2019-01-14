@@ -7,9 +7,9 @@ class PhoneNumberPairs(
                         var i_user_contact_start_date: String = "",
                         var i_user_contact_end_date: String = "",
                         var a_user_table_date: String = "",
-                        var data_size_limit: String = "",
                         var idsOfSelectedRegions: Array[String] = null
-                      ) {
+                      ) extends Serializable {
+
   import org.apache.spark.sql.{DataFrame, SparkSession, Row}
   import spark.implicits._
 
@@ -19,11 +19,21 @@ class PhoneNumberPairs(
   var edgeCount: Long = _
   var outDegreeForEachPhoneNum: DataFrame = _
   var inDegreeForEachPhoneNum: DataFrame = _
-  var outDegreeVerseTotalNumber: DataFrame = _
-  var inDegreeVerseTotalNumber: DataFrame = _
+  var outDegreeVersusTotalNumber: DataFrame = _
+  var inDegreeVersusTotalNumber: DataFrame = _
 
-  def getPhoneNumberPairs():DataFrame =
-  {
+  def regexCheckAndSlicePhoneNumber(phoneNumber: String) = {
+    if (phoneNumber.matches("^(|0*86)(1[34578]\\d{9})$"))
+      phoneNumber.takeRight(11)
+    else ""
+  }
+
+  def getPhoneNumberPairsEfficiently() = {
+
+  }
+
+
+  def getPhoneNumberPairs(): DataFrame = {
     var regionLimitationSql = ""
     if (idsOfSelectedRegions != null && idsOfSelectedRegions.nonEmpty) {
       val idOfFirstRegion = idsOfSelectedRegions(0)
@@ -35,10 +45,6 @@ class PhoneNumberPairs(
       regionLimitationSql = s"AND ($sqlTemp)"
     }
 
-    var dataLimitSql = ""
-    if (!dataLimitSql.isEmpty) {
-      dataLimitSql = s"LIMIT $data_size_limit"
-    }
 
     pnp = spark.sql(
       s"""
@@ -46,19 +52,25 @@ class PhoneNumberPairs(
          |    mobile_number, phone_number
          |FROM
          |    (SELECT phone_number, user_id FROM dwd.dwd_tantan_eventlog_user_contact_i_d
-         |    WHERE dt between '$i_user_contact_start_date' and '$i_user_contact_end_date'
-         |    $dataLimitSql)
+         |    WHERE dt between '$i_user_contact_start_date' and '$i_user_contact_end_date')
          |JOIN
          |    (SELECT mobile_number, id FROM dwd.dwd_putong_yay_users_a_d
          |    WHERE dt = '$a_user_table_date' $regionLimitationSql)
          |on
          |    user_id = id
     """.stripMargin
-    ).rdd.map{
+    ).rdd.map {
       case Row(null, _) => null
       case Row(_, null) => null
-      case Row(srcNode: String, destNode: String) => (srcNode, destNode)
-    }.filter(_!=null).toDF("mobile_number", "phone_number")
+      case Row(srcNode: String, destNode: String) => {
+        val srcNodeTemp = regexCheckAndSlicePhoneNumber(srcNode)
+        val destNodeTemp = regexCheckAndSlicePhoneNumber(destNode)
+        if (srcNodeTemp.isEmpty || destNodeTemp.isEmpty || srcNodeTemp == destNodeTemp) null
+        else (srcNodeTemp, destNodeTemp)
+      }
+    }.filter(_ != null)
+      .distinct()
+      .toDF("mobile_number", "phone_number")
     pnp
   }
 
@@ -70,37 +82,45 @@ class PhoneNumberPairs(
 
   def getOutDegreeForEachPhoneNum(): DataFrame = {
     outDegreeForEachPhoneNum = pnp.rdd
-      .map{case Row(user_number: String, _) => (user_number, 1.toLong)}
+      .map { case Row(user_number: String, _) => (user_number, 1.toLong) }
       .reduceByKey(_ + _)
-      .map{case (user_number: String, num) => (num, user_number)}
+      .map { case (user_number: String, num) => (num, user_number) }
       .sortByKey().toDF("out_degree", "phone_num")
     outDegreeForEachPhoneNum
   }
 
   def getInDegreeForEachPhoneNum(): DataFrame = {
     inDegreeForEachPhoneNum = pnp.rdd
-      .map{case Row(_, contact_number: String) => (contact_number, 1.toLong)}
+      .map { case Row(_, contact_number: String) => (contact_number, 1.toLong) }
       .reduceByKey(_ + _)
-      .map{case (contact_number: String, num) => (num, contact_number)}
-      .sortByKey().toDF("in_degree", "phone_num")
+      .toDF("in_degree", "phone_num")
     inDegreeForEachPhoneNum
   }
 
-  def getOutDegreeVerseTotalNumber(): DataFrame = {
-    outDegreeVerseTotalNumber = outDegreeForEachPhoneNum.rdd
-      .map{case Row(in_degree: Long, _) => (in_degree, 1.toLong)}
-      .reduceByKey(_ + _)
-      .sortByKey()
-      .toDF("in_degree", "total_num")
-    outDegreeVerseTotalNumber
+  def joinInDegreeAndOutDegree(): DataFrame = {
+    inDegreeForEachPhoneNum.join(outDegreeForEachPhoneNum)
   }
 
-  def getInDegreeVerseTotalNumber(): DataFrame = {
-    inDegreeVerseTotalNumber = inDegreeForEachPhoneNum.rdd
-        .map{case Row(in_degree: Long, _) => (in_degree, 1.toLong)}
-        .reduceByKey(_ + _)
-        .sortByKey()
-        .toDF("in_degree", "total_num")
-    inDegreeVerseTotalNumber
+  def getOutDegreeVerseTotalNumber(minOutDegree: Int, maxOutDegree: Int): DataFrame = {
+    outDegreeVersusTotalNumber = outDegreeForEachPhoneNum.rdd
+      .map { case Row(_, out_degree: Long) => (out_degree, 1.toLong) }
+      .reduceByKey(_ + _)
+      .filter { case (out_degree, _) => out_degree > minOutDegree && out_degree < maxOutDegree }
+      .toDF("out_degree", "total_num")
+    outDegreeVersusTotalNumber
+  }
+
+  def getInDegreeVerseTotalNumber(minInDegree: Int, maxInDegree: Int): DataFrame = {
+    inDegreeVersusTotalNumber = inDegreeForEachPhoneNum.rdd
+      .map { case Row(in_degree: Long, _) => (in_degree, 1.toLong) }
+      .reduceByKey(_ + _)
+      .filter { case (in_degree, _) => in_degree > minInDegree && in_degree < maxInDegree }
+      .toDF("in_degree", "total_num")
+    inDegreeVersusTotalNumber
+  }
+
+  def saveInDegreeAndOutDegreeAsCsv(path: String): Unit = {
+    inDegreeVersusTotalNumber.repartition(1).write.format("csv").save(path.concat("/inDegree"))
+    outDegreeVersusTotalNumber.repartition(1).write.format("csv").save(path.concat("/outDegree"))
   }
 }
